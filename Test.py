@@ -3,6 +3,7 @@ import Visualizer
 import utils
 import torch
 import numpy as np
+import pandas as pd
 from Metrics import Metrics
 from Environment import environment
 from Agent import agent
@@ -21,7 +22,7 @@ if __name__ == "__main__":
     #test data load
     train_data, test_data = DataManager.get_data_tensor(path_list,
                                                         train_date_start="20090101",
-                                                        train_date_end="201550101",
+                                                        train_date_end="20150101",
                                                         test_date_start="20170102",
                                                         test_date_end=None)
 
@@ -31,16 +32,14 @@ if __name__ == "__main__":
     K = 3
 
     #Test Model load
-    score_net_actor = Score()
-    score_net_critic = Score()
-    actor = Actor(score_net_actor)
-    critic = Critic(score_net_critic)
-    critic_target = Critic(score_net_critic)
+    score_net = Score()
+    actor = Actor(score_net)
+    critic = Critic(score_net)
+    critic_target = Critic(score_net)
 
     balance = 15000000
     min_trading_price = 0
     max_trading_price = 5000000
-
 
     #Agent
     environment = environment(chart_data=test_data)
@@ -48,8 +47,8 @@ if __name__ == "__main__":
                   actor=actor,
                   critic=critic,
                   critic_target=critic_target,
-                  critic_lr=1e-3, actor_lr=1e-3,
-                  tau=0.005, delta=0.0,
+                  critic_lr=1e-4, actor_lr=1e-4,
+                  tau=0.005, delta=0.07,
                   discount_factor=0.9,
                   min_trading_price=min_trading_price,
                   max_trading_price=max_trading_price)
@@ -91,10 +90,9 @@ if __name__ == "__main__":
             p = agent.portfolio
             pv = agent.portfolio_value
             sv = agent.portfolio_value_static
-            balance_ = agent.balance
+            b = agent.balance
             change = agent.change
             pi_vector = agent.pi_operator(change)
-            epsilon = agent.epsilon
             profitloss = agent.profitloss
             np.set_printoptions(precision=4, suppress=True)
             # print("------------------------------------------------------------------------------------------")
@@ -105,8 +103,7 @@ if __name__ == "__main__":
             # print(f"pi_vector:{pi_vector}")
             # print(f"portfolio value:{pv}")
             # print(f"static value:{sv}")
-            # print(f"balance:{balance_}")
-            # print(f"epsilon:{epsilon}")
+            print(f"balance:{b}")
             # print(f"profitloss:{profitloss}")
             # print("-------------------------------------------------------------------------------------------")
 
@@ -118,6 +115,7 @@ if __name__ == "__main__":
     agent.set_balance(15000000)
     agent.reset()
     agent.environment.reset()
+    agent.delta = 0.0
     state1 = agent.environment.observe()
     portfolio = agent.portfolio
     steps_done = 0
@@ -135,11 +133,11 @@ if __name__ == "__main__":
         if done:
             break
 
-
     bench_profitloss2 = []
     agent.set_balance(15000000)
     agent.reset()
     agent.environment.reset()
+    agent.delta = 0.0
     state1 = agent.environment.observe()
     portfolio = agent.portfolio
     while True:
@@ -163,5 +161,5 @@ if __name__ == "__main__":
     metrics.get_profitlosses(save_path=Msave_path3)
 
     Visualizer.get_portfolio_value_curve(metrics.portfolio_values, save_path=Vsave_path2)
-    Visualizer.get_profitloss_curve(metrics.profitlosses, bench_profitloss1, bench_profitloss2, save_path=Vsave_path4)
+    Visualizer.get_profitloss_curve(metrics.profitlosses, bench_profitloss1, save_path=Vsave_path4)
 

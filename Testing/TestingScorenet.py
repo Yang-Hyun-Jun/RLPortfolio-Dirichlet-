@@ -6,12 +6,10 @@ if __name__ == "__main__":
     common_path1 = "/Users/mac/Desktop/RLPortfolio/DirichletPortfolio"
     common_path2 = "/Metrics/Profitloss_test"
 
-    # No header model
-    x_profitlosses = pd.read_csv(common_path1 + " (header x)" + common_path2).iloc[:,1]
-    # DNN header model
-    h_profitlosses = pd.read_csv(common_path1 + " (base)" + common_path2).iloc[:,1]
-    # Simple header model
-    s_profitlosses = pd.read_csv(common_path1 + " (simple header)" + common_path2).iloc[:,1]
+    # Scorenet share model
+    profitlosses1 = pd.read_csv(common_path1 + " (base)" + common_path2).iloc[:,1]
+    # Scorenet no share model
+    profitlosses2 = pd.read_csv(common_path1 + " (No share)" + common_path2).iloc[:,1]
 
     #Visualizing
     fig, ax = plt.subplots(figsize=(60, 8), facecolor="w")
@@ -22,13 +20,12 @@ if __name__ == "__main__":
     ax.set_ylabel("Profitloss")
     ax.set_xlabel("Time step")
     plt.title("Profitloss")
-    plt.plot(x_profitlosses, color='dodgerblue', label="No header")
-    plt.plot(h_profitlosses, color="red", label="Header")
-    plt.plot(s_profitlosses, color="yellow", label="Simple header")
+    plt.plot(profitlosses1, label="Off policy", color="red")
+    plt.plot(profitlosses2, label="On policy", color="blue")
 
-    xticks = [int(i) for i in np.linspace(0, len(x_profitlosses), 6)]
+    xticks = [int(i) for i in np.linspace(0, len(profitlosses1), 6)]
     plt.xticks(xticks)
     plt.grid(True, color="w", alpha=0.5)
     plt.legend()
     plt.show()
-    fig.savefig("/Users/mac/Desktop/RLPortfolio/TestingHeader")
+    fig.savefig("/Users/mac/Desktop/RLPortfolio/TestingScorenet")

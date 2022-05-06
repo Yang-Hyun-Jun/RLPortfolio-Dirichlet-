@@ -126,7 +126,6 @@ class agent(nn.Module):
 
         self.validate_action(action, self.delta)
         self.portfolio_value_static_ = self.portfolio * self.portfolio_value
-        p_ = self.portfolio_value
 
         #전체적으로 종목별 매도 수행을 먼저한다.
         for i in range(action.shape[0]):
@@ -185,7 +184,7 @@ class agent(nn.Module):
 
         reward = self.get_reward(self.portfolio_value, self.portfolio_value_static)
         reward = reward*100
-        # reward = (self.portfolio_value - p_)/p_
+
         if len(self.environment.chart_data)-1 <= self.environment.idx:
             done = 1
         else:

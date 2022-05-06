@@ -2,7 +2,7 @@ import os
 import argparse
 import DataManager
 import utils
-import torch
+
 from Learner import learner
 
 if __name__ == "__main__":
@@ -32,7 +32,7 @@ if __name__ == "__main__":
   parser.add_argument("--actor_lr", type=float, default=1e-4)
   parser.add_argument("--critic_lr", type=float, default=1e-4)
   parser.add_argument("--tau", type=float, default=0.005)
-  parser.add_argument("--delta", type=float, default=0.0)
+  parser.add_argument("--delta", type=float, default=0.07)
   parser.add_argument("--discount_factor", type=float, default=0.9)
   parser.add_argument("--num_episode", type=int, default=50)
   parser.add_argument("--balance", type=int, default=15000000)

@@ -135,12 +135,13 @@ class Actor(nn.Module):
         score3 = self.score_net(x3, torch.cat([portfolio[:,0], portfolio[:,3]], dim=-1))
 
         alpha = torch.cat([score1, score2, score3], dim=-1)
-        alpha = torch.exp(alpha) + 1
+        alpha = torch.tanh(alpha) + 2
+        # alpha = torch.exp(alpha) + 1
         return alpha
 
     def sampling(self, s1_tensor, portfolio, Test=False):
         batch_num = s1_tensor.shape[0]
-        cash_alpha = torch.ones(size=(batch_num, 1)) * 2
+        cash_alpha = torch.ones(size=(batch_num, 1)) * 2.0
         alpha = torch.cat([cash_alpha, self(s1_tensor, portfolio)], dim=-1)
         dirichlet = Dirichlet(alpha)
 

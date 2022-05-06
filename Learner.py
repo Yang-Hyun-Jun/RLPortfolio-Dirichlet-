@@ -36,9 +36,6 @@ class learner:
         self.actor = Actor(score_net=self.score_net)
         self.critic = Critic(score_net=self.score_net)
         self.critic_target = Critic(score_net=self.score_net)
-        # self.actor = Actor()
-        # self.critic = Critic()
-        # self.critic_target = Critic()
 
         self.critic_target.load_state_dict(self.critic.state_dict())
         # self.actor.score_net.encoder.load_state_dict(torch.load(learner.encoder_path))
@@ -116,6 +113,11 @@ class learner:
                 next_state1, next_portfolio, reward, done = self.agent.step(action, confidence)
                 steps_done += 1
 
+                # if steps_done == 1:
+                #     reward -= 0
+                # else:
+                #     reward -= 0.10 * np.linalg.norm(action-action_, ord=1)
+
                 experience = (torch.tensor(state1).float().view(1,3,-1),
                               torch.tensor(portfolio).float().view(1,4,-1),
                               torch.tensor(action).float().view(1,-1),
@@ -129,6 +131,7 @@ class learner:
                 cum_r += reward
                 state1 = next_state1
                 portfolio = next_portfolio
+                action_ = action
 
                 if done:
                     break
@@ -136,8 +139,10 @@ class learner:
                 if steps_done % 300 == 0:
                     value = self.agent.critic(torch.tensor(state1).float().view(1,3,-1),
                                               torch.tensor(portfolio).float().view(1,4,-1)).detach().numpy()[0]
-
+                    alpha = self.agent.actor(torch.tensor(state1).float().view(1,3,-1),
+                                             torch.tensor(portfolio).float().view(1,4,-1)).detach()[0]
                     a = action
+                    al = torch.cat([torch.tensor([2.0]), alpha], dim=-1).numpy()
                     p = self.agent.portfolio
                     pv = self.agent.portfolio_value
                     sv = self.agent.portfolio_value_static
@@ -150,6 +155,7 @@ class learner:
                     print(f"price:{self.environment.get_price()}")
                     print(f"value:{value}")
                     print(f"action:{a}")
+                    print(f"alpha:{al}")
                     print(f"portfolio:{p}")
                     print(f"pi_vector:{pi_vector}")
                     print(f"portfolio value:{pv}")

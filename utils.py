@@ -9,3 +9,9 @@ def sigmoid(x):
 
 def exp(x):
     return np.exp(x)
+
+if __name__ == "__main__":
+    a = np.array([1, 2, 3])
+    b = np.array([3, 2, 1])
+    c = np.linalg.norm(a-b)
+    print(c**2)
