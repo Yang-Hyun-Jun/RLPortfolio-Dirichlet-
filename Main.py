@@ -67,7 +67,7 @@ min_trading_price = 0
 max_trading_price = args.balance / len(args.stock_code)
 
 # 파라미터 설정
-params = {"actor_lr":args.actor_lr, "critic_lr":args.critic_lr, "tau":args.tau,
+params = {"actor_lr":args.actor_lr, "critic_lr":args.critic_lr, "tau":args.tau, "K":len(args.stock_code),
           "chart_data": train_data, "discount_factor":args.discount_factor, "delta":args.delta,
           "min_trading_price": min_trading_price, "max_trading_price": max_trading_price,
           "batch_size":args.batch_size, "memory_size":args.memory_size}
@@ -76,4 +76,5 @@ params = {"actor_lr":args.actor_lr, "critic_lr":args.critic_lr, "tau":args.tau,
 learner = learner(**params)
 learner.run(num_episode=args.num_episode, balance=args.balance)
 learner.save_model(critic_path=utils.SAVE_DIR + "/Models" + "/DirichletPortfolio_critic.pth",
-                   actor_path=utils.SAVE_DIR + "/Models" + "/DirichletPortfolio_actor.pth")
+                   actor_path=utils.SAVE_DIR + "/Models" + "/DirichletPortfolio_actor.pth",
+                   score_net_path=utils.SAVE_DIR + "/Models" + "/DirichletPortfolio_score.pth")

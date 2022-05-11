@@ -3,7 +3,7 @@ import Visualizer
 import utils
 import torch
 import numpy as np
-import pandas as pd
+
 from Metrics import Metrics
 from Environment import environment
 from Agent import agent
@@ -29,17 +29,17 @@ if __name__ == "__main__":
     #dimension
     state1_dim = 5
     state2_dim = 2
-    K = 3
+    K = len(stock_code)
 
     #Test Model load
     score_net = Score()
     actor = Actor(score_net)
-    critic = Critic(score_net)
-    critic_target = Critic(score_net)
+    critic = Critic(score_net, header_dim=K)
+    critic_target = Critic(score_net, header_dim=K)
 
     balance = 15000000
     min_trading_price = 0
-    max_trading_price = 5000000
+    max_trading_price = balance/K
 
     #Agent
     environment = environment(chart_data=test_data)
@@ -48,7 +48,7 @@ if __name__ == "__main__":
                   critic=critic,
                   critic_target=critic_target,
                   critic_lr=1e-4, actor_lr=1e-4,
-                  tau=0.005, delta=0.07,
+                  tau=0.005, delta=0.07, K=K,
                   discount_factor=0.9,
                   min_trading_price=min_trading_price,
                   max_trading_price=max_trading_price)
@@ -56,25 +56,25 @@ if __name__ == "__main__":
     #Model parameter load
     critic_path = utils.SAVE_DIR + "/Models" + "/DirichletPortfolio_critic.pth"
     actor_path = utils.SAVE_DIR + "/Models" + "/DirichletPortfolio_actor.pth"
-    agent.critic.load_state_dict(torch.load(critic_path))
+    score_path = utils.SAVE_DIR + "/Models" + "/DirichletPortfolio_score.pth"
+    # agent.critic.load_state_dict(torch.load(critic_path))
     agent.actor.load_state_dict(torch.load(actor_path))
+    agent.actor.score_net.load_state_dict(torch.load(score_path))
 
-    #Test
+    #Model Test
     metrics = Metrics()
     agent.set_balance(balance)
     agent.reset()
     agent.environment.reset()
-    agent.epsilon = 0
     state1 = agent.environment.observe()
     portfolio = agent.portfolio
     steps_done = 0
 
     while True:
-        action, confidence, log_prob = agent.get_action(torch.tensor(state1).float().view(1,3,-1),
-                                                        torch.tensor(portfolio).float().view(1,4,-1), True)
+        action, confidence, log_prob = agent.get_action(torch.tensor(state1).float().view(1,K,-1),
+                                                        torch.tensor(portfolio).float().view(1,K+1,-1), "mean")
 
         next_state1, next_portfolio, reward, done = agent.step(action, confidence)
-
         steps_done += 1
         state1 = next_state1
         portfolio = next_portfolio
@@ -83,49 +83,22 @@ if __name__ == "__main__":
         metrics.profitlosses.append(agent.profitloss)
 
         if steps_done % 50 == 0:
-            value = agent.critic(torch.tensor(state1).float().view(1,3,-1),
-                                 torch.tensor(portfolio).float().view(1,4,-1)).detach().numpy()[0]
-
-            a = action
-            p = agent.portfolio
-            pv = agent.portfolio_value
-            sv = agent.portfolio_value_static
-            b = agent.balance
-            change = agent.change
-            pi_vector = agent.pi_operator(change)
-            profitloss = agent.profitloss
-            np.set_printoptions(precision=4, suppress=True)
-            # print("------------------------------------------------------------------------------------------")
-            # print(f"price:{environment.get_price()}")
-            # print(f"q_value:{value}")
-            # print(f"action:{a}")
-            # print(f"portfolio:{p}")
-            # print(f"pi_vector:{pi_vector}")
-            # print(f"portfolio value:{pv}")
-            # print(f"static value:{sv}")
-            print(f"balance:{b}")
-            # print(f"profitloss:{profitloss}")
-            # print("-------------------------------------------------------------------------------------------")
-
+            print(f"balance:{agent.balance}")
         if done:
             break
 
-
+    #Benchmark: B&H
     bench_profitloss1 = []
-    agent.set_balance(15000000)
+    agent.set_balance(balance)
     agent.reset()
     agent.environment.reset()
     agent.delta = 0.0
     state1 = agent.environment.observe()
     portfolio = agent.portfolio
-    steps_done = 0
     while True:
-        steps_done += 1
-        action = np.array([0.33, 0.33, 0.33])
-
+        action = np.ones(K)/K
         confidence = abs(action)
         next_state1, next_portfolio, reward, done = agent.step(action, confidence)
-        steps_done += 1
 
         state1 = next_state1
         portfolio = next_portfolio
@@ -133,8 +106,9 @@ if __name__ == "__main__":
         if done:
             break
 
+    #Benchmark Random
     bench_profitloss2 = []
-    agent.set_balance(15000000)
+    agent.set_balance(balance)
     agent.reset()
     agent.environment.reset()
     agent.delta = 0.0
@@ -144,7 +118,6 @@ if __name__ == "__main__":
         action = np.random.uniform(low=-0.1, high=0.1, size=3)
         confidence = abs(action)
         next_state1, next_portfolio, reward, done = agent.step(action, confidence)
-        steps_done += 1
 
         state1 = next_state1
         portfolio = next_portfolio
@@ -152,6 +125,7 @@ if __name__ == "__main__":
         if done:
             break
 
+    #metric and visualizing
     Vsave_path2 = utils.SAVE_DIR + "/" + "/Metrics" + "/Portfolio Value Curve_test"
     Vsave_path4 = utils.SAVE_DIR + "/" + "/Metrics" + "/Profitloss Curve_test"
     Msave_path1 = utils.SAVE_DIR + "/" + "/Metrics" + "/Portfolio Value_test"

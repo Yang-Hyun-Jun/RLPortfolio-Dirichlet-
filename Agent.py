@@ -3,25 +3,18 @@ import torch.nn as nn
 import numpy as np
 
 class agent(nn.Module):
-    # 주식 보유 비율, 현재 손익, 평균 매수 단가 대비 등락률
-    STATE_DIM = 3
-    # 관리 종목 수
-    K = 3
+    # 거래 비용
     # TRADING_CHARGE = 0.00015
     # TRADING_TEX = 0.0025
     TRADING_CHARGE = 0.0
     TRADING_TEX = 0.0
-
-    ACTIONS = []
-    NUM_ASSETS = 0
-    NUM_ACTIONS = 0
 
     def __init__(self, environment,
                  critic:nn.Module,
                  critic_target:nn.Module,
                  actor:nn.Module,
                  critic_lr:float, actor_lr:float,
-                 tau:float, delta:float,
+                 tau:float, delta:float, K:int,
                  discount_factor:float,
                  min_trading_price:int,
                  max_trading_price:int):
@@ -37,6 +30,7 @@ class agent(nn.Module):
         self.critic_lr = critic_lr
         self.actor_lr = actor_lr
         self.tau = tau
+        self.K = K
         self.delta = delta
         self.discount_factor = discount_factor
 
@@ -46,8 +40,8 @@ class agent(nn.Module):
 
         self.critic.load_state_dict(self.critic_target.state_dict())
 
-        self.num_stocks = np.array([0] * agent.K)
-        self.portfolio = np.array([0] * (agent.K+1), dtype=float)
+        self.num_stocks = np.array([0] * self.K)
+        self.portfolio = np.array([0] * (self.K+1), dtype=float)
 
         self.portfolio_value = 0
         self.initial_balance = 0
@@ -59,8 +53,8 @@ class agent(nn.Module):
         self.initial_balance = balance
 
     def reset(self):
-        self.num_stocks = np.array([0] * agent.K)
-        self.portfolio = np.array([0] * (agent.K+1), dtype=float)
+        self.num_stocks = np.array([0] * self.K)
+        self.portfolio = np.array([0] * (self.K+1), dtype=float)
         self.portfolio[0] = 1
         self.balance = self.initial_balance
         self.portfolio_value = self.initial_balance
