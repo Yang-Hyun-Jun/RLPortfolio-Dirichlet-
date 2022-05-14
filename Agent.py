@@ -4,17 +4,17 @@ import numpy as np
 
 class agent(nn.Module):
     # 거래 비용
-    # TRADING_CHARGE = 0.00015
-    # TRADING_TEX = 0.0025
-    TRADING_CHARGE = 0.0
-    TRADING_TEX = 0.0
+    TRADING_CHARGE = 0.00015
+    TRADING_TEX = 0.0025
+    # TRADING_CHARGE = 0.0
+    # TRADING_TEX = 0.0
 
     def __init__(self, environment,
                  critic:nn.Module,
                  critic_target:nn.Module,
                  actor:nn.Module,
-                 critic_lr:float, actor_lr:float,
-                 tau:float, delta:float, K:int,
+                 lr:float, K:int,
+                 tau:float, delta:float,
                  discount_factor:float,
                  min_trading_price:int,
                  max_trading_price:int):
@@ -27,17 +27,15 @@ class agent(nn.Module):
         self.critic = critic
         self.critic_target = critic_target
         self.actor = actor
-        self.critic_lr = critic_lr
-        self.actor_lr = actor_lr
+        self.lr = lr
         self.tau = tau
         self.K = K
         self.delta = delta
         self.discount_factor = discount_factor
 
-        self.critic_optimizer = torch.optim.Adam(params=self.critic.parameters(), lr=critic_lr)
-        self.actor_optimizer = torch.optim.Adam(params=self.actor.parameters(), lr=actor_lr)
+        parameters = set(self.critic.parameters()) | set(self.actor.parameters())
+        self.optimizer = torch.optim.Adam(params=parameters, lr=self.lr)
         self.huber = nn.SmoothL1Loss()
-
         self.critic.load_state_dict(self.critic_target.state_dict())
 
         self.num_stocks = np.array([0] * self.K)
@@ -189,18 +187,15 @@ class agent(nn.Module):
         s, pf, a, r, ns, npf = s_tensor, portfolio, action, reward, ns_tensor, ns_portfolio
         eps_clip = 0.1
 
-        #Critic Update
+        #Critic loss
         with torch.no_grad():
             next_value = self.critic_target(ns, npf)
             target = reward + self.discount_factor * next_value * (1-done)
 
         value = self.critic(s, pf)
         critic_loss = self.huber(value, target)
-        self.critic_optimizer.zero_grad()
-        critic_loss.backward()
-        self.critic_optimizer.step()
 
-        #Actor Update
+        #Actor loss
         _, log_prob_ = self.actor.sampling(s, pf)
         pi_old = torch.exp(log_prob)
         pi_now = torch.exp(log_prob_)
@@ -211,10 +206,11 @@ class agent(nn.Module):
         surr1 = ratio * td_advantage
         surr2 = torch.clamp(ratio, 1-eps_clip, 1+eps_clip) * td_advantage
         actor_loss = -torch.min(surr1, surr2)
-        actor_loss = actor_loss.mean()
-        self.actor_optimizer.zero_grad()
-        actor_loss.backward()
-        self.actor_optimizer.step()
+
+        loss = (actor_loss + critic_loss).mean()
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
 
     def soft_target_update(self, params, target_params):
         for param, target_param in zip(params, target_params):

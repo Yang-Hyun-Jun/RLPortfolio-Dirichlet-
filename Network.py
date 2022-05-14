@@ -1,49 +1,81 @@
 import torch
 import torch.nn as nn
-
 from Distribution import Dirichlet
-from AutoEncoder import MLPEncoder
 
-
-class Score(nn.Module):
-    def __init__(self, state1_dim=5, state2_dim=2, output_dim=1):
+class Encoder(nn.Module):
+    def __init__(self, state1_dim=5, state2_dim=2):
         super().__init__()
-
         self.state1_dim = state1_dim
         self.state2_dim = state2_dim
-        self.output_dim = output_dim
-        self.encoder = MLPEncoder()
-        self.encoder.eval()
+        self.layer1 = nn.Linear(state1_dim+state2_dim, 128)
+        self.layer2 = nn.Linear(128, 64)
+        self.hidden_act = nn.SELU()
 
-        # self.layer1 = nn.Linear(128+state2_dim, 64)
-        self.layer1 = nn.Linear(state1_dim+state2_dim, 64)
-        self.layer2 = nn.Linear(64, 32)
-        self.layer3 = nn.Linear(32, output_dim)
-        self.hidden_act = nn.ReLU()
-        self.out_act = nn.Identity()
-
-        nn.init.kaiming_normal_(self.layer1.weight, nonlinearity="relu")
-        nn.init.kaiming_normal_(self.layer2.weight, nonlinearity="relu")
-        nn.init.kaiming_normal_(self.layer3.weight, nonlinearity="relu")
-
-    def forward(self, s1, s2):
-        # x = self.encoder(s1)
-        x = torch.concat([s1, s2], dim=-1)
+    def forward(self, x):
         x = self.layer1(x)
-        x = self.hidden_act(x)
         x = self.layer2(x)
-        x = self.hidden_act(x)
-        x = self.layer3(x)
-        x = self.out_act(x)
         return x
 
+class Decoder(nn.Module):
+    def __init__(self, output_dim=1):
+        super().__init__()
+        self.output_dim = output_dim
+        self.layer1 = nn.Linear(64, 128)
+        self.layer2 = nn.Linear(128, 256)
+        self.layer3 = nn.Linear(256, output_dim)
+        self.hidden_act = nn.SELU()
+
+    def forward(self, x):
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        return x
+
+class Score(nn.Module):
+    def __init__(self, encoder, decoder):
+        super().__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+
+    def forward(self, s1, s2):
+        x = torch.cat([s1, s2], dim=-1)
+        x = self.encoder(x)
+        x = self.decoder(x)
+        return x
+
+# class Score(nn.Module):
+#     def __init__(self, state1_dim=5, state2_dim=2, output_dim=1):
+#         super().__init__()
+#
+#         self.state1_dim = state1_dim
+#         self.state2_dim = state2_dim
+#         self.output_dim = output_dim
+
+#         self.layer1 = nn.Linear(state1_dim+state2_dim, 64)
+#         self.layer2 = nn.Linear(64, 32)
+#         self.layer3 = nn.Linear(32, output_dim)
+#         self.hidden_act = nn.ReLU()
+#         self.out_act = nn.Identity()
+#
+#         nn.init.kaiming_normal_(self.layer1.weight, nonlinearity="relu")
+#         nn.init.kaiming_normal_(self.layer2.weight, nonlinearity="relu")
+#         nn.init.kaiming_normal_(self.layer3.weight, nonlinearity="relu")
+#
+#     def forward(self, s1, s2):
+#         # x = self.encoder(s1)
+#         x = torch.concat([s1, s2], dim=-1)
+#         x = self.layer1(x)
+#         x = self.hidden_act(x)
+#         x = self.layer2(x)
+#         x = self.hidden_act(x)
+#         x = self.layer3(x)
+#         x = self.out_act(x)
+#         return x
+
 class Actor(nn.Module):
-    def __init__(self, score_net:nn.Module, state1_dim=5, state2_dim=2, output_dim=1):
+    def __init__(self, score_net):
         super().__init__()
         self.score_net = score_net
-        self.state1_dim = state1_dim
-        self.state2_dim = state2_dim
-        self.output_dim = output_dim
 
     def forward(self, s1_tensor, portfolio):
         """
@@ -63,7 +95,8 @@ class Actor(nn.Module):
             globals()[f"x{i+1}"] = s1_tensor[:,i,:]
 
         for k in range(s1_tensor.shape[1]):
-            globals()[f"score{k+1}"] = self.score_net(globals()[f"x{k+1}"], torch.cat([portfolio[:,0], portfolio[:,k+1]], dim=-1))
+            state2 = torch.cat([portfolio[:,0], portfolio[:,k+1]], dim=-1)
+            globals()[f"score{k+1}"] = self.score_net(globals()[f"x{k+1}"], state2)
 
         for j in range(s1_tensor.shape[1]):
             scores = list() if j == 0 else scores
@@ -71,7 +104,6 @@ class Actor(nn.Module):
 
         alpha = torch.cat(scores, dim=-1)
         alpha = torch.tanh(alpha) + 2.0
-        # alpha = torch.exp(alpha) + 1.0
         return alpha
 
     def sampling(self, s1_tensor, portfolio, repre=False):
@@ -103,20 +135,18 @@ class Actor(nn.Module):
 
 
 class Critic(nn.Module):
-    def __init__(self, score_net:nn.Module, state1_dim=5, state2_dim=2, output_dim=1, header_dim=3):
+    def __init__(self, score_net, header_dim=None):
         super().__init__()
         self.score_net = score_net
         self.header = header(input_dim=header_dim)
-        self.state1_dim = state1_dim
-        self.state2_dim = state2_dim
-        self.output_dim = output_dim
 
     def forward(self, s1_tensor, portfolio):
         for i in range(s1_tensor.shape[1]):
             globals()[f"x{i+1}"] = s1_tensor[:,i,:]
 
         for k in range(s1_tensor.shape[1]):
-            globals()[f"score{k+1}"] = self.score_net(globals()[f"x{k+1}"], torch.cat([portfolio[:,0], portfolio[:,k+1]], dim=-1))
+            state2 = torch.cat([portfolio[:,0], portfolio[:,k+1]], dim=-1)
+            globals()[f"score{k+1}"] = self.score_net(globals()[f"x{k+1}"], state2)
 
         for j in range(s1_tensor.shape[1]):
             scores = list() if j == 0 else scores
@@ -124,19 +154,17 @@ class Critic(nn.Module):
 
         scores = torch.cat(scores, dim=-1)
         v = self.header(scores)
-        # v = torch.sum(scores, dim=1).view(-1,1)
         return v
 
 class header(nn.Module):
-    def __init__(self, out_dim=1, input_dim=3):
+    def __init__(self, output_dim=1, input_dim=None):
         super().__init__()
-        self.out_dim = out_dim
+        self.output_dim = output_dim
         self.input_dim = input_dim
 
         self.layer1 = nn.Linear(input_dim, 128)
         self.layer2 = nn.Linear(128 ,64)
-        self.layer3 = nn.Linear(64, 32)
-        self.layer4 = nn.Linear(32, out_dim)
+        self.layer3 = nn.Linear(64, output_dim)
         self.hidden_act = nn.ReLU()
         self.out_act = nn.Identity()
 
@@ -146,8 +174,5 @@ class header(nn.Module):
         x = self.layer2(x)
         x = self.hidden_act(x)
         x = self.layer3(x)
-        x = self.hidden_act(x)
-        x = self.layer4(x)
         x = self.out_act(x)
         return x
-

@@ -7,15 +7,15 @@ from Agent import agent
 from ReplayMemory import ReplayMemory
 from Network import Actor
 from Network import Critic
+from Network import Encoder
+from Network import Decoder
 from Network import Score
 from Metrics import Metrics
 
+
 class learner:
-
-    encoder_path = "/Users/mac/Desktop/RLPortfolio/AutoEncoder/encoder.pth"
-
     def __init__(self,
-                 actor_lr=1e-4, critic_lr=1e-4,
+                 lr=1e-4,
                  tau = 0.005, delta=0.07,
                  discount_factor=0.9,
                  batch_size=256, memory_size=100000,
@@ -31,17 +31,19 @@ class learner:
         self.chart_data = chart_data
         self.batch_size = batch_size
 
-        self.score_net = Score()
+        self.encoder = Encoder()
+        self.decoder = Decoder()
+        self.decoder_target = Decoder()
+
+        self.score_net = Score(self.encoder, self.decoder)
+        self.score_net_target = Score(self.encoder, self.decoder_target)
+
         self.actor = Actor(score_net=self.score_net)
-        self.critic = Critic(score_net=self.score_net, header_dim=learner.K)
-        self.critic_target = Critic(score_net=self.score_net, header_dim=learner.K)
-
+        self.critic = Critic(score_net=self.score_net, header_dim=K)
+        self.critic_target = Critic(score_net=self.score_net_target, header_dim=K)
         self.critic_target.load_state_dict(self.critic.state_dict())
-        # self.actor.score_net.encoder.load_state_dict(torch.load(learner.encoder_path))
-        # self.critic.score_net.encoder.load_state_dict(torch.load(learner.encoder_path))
 
-        self.actor_lr = actor_lr
-        self.critic_lr = critic_lr
+        self.lr = lr
         self.tau = tau
         self.K = K
         self.delta = delta
@@ -50,11 +52,9 @@ class learner:
         self.max_trading_price = max_trading_price
 
         self.agent = agent(environment=self.environment,
-                           critic=self.critic,
+                           critic=self.critic, lr=self.lr,
                            critic_target=self.critic_target,
                            actor=self.actor, K=self.K,
-                           critic_lr=self.critic_lr,
-                           actor_lr=self.actor_lr,
                            tau=self.tau, delta=self.delta,
                            discount_factor=self.discount_factor,
                            min_trading_price=min_trading_price,
@@ -112,11 +112,6 @@ class learner:
 
                 next_state1, next_portfolio, reward, done = self.agent.step(action, confidence)
                 steps_done += 1
-
-                # if steps_done == 1:
-                #     reward -= 0
-                # else:
-                #     reward -= 0.10 * np.linalg.norm(action-action_, ord=1)
 
                 experience = (torch.tensor(state1).float().view(1,self.K,-1),
                               torch.tensor(portfolio).float().view(1,self.K+1,-1),

@@ -7,22 +7,21 @@ if __name__ == "__main__":
     common_path2 = "/Metrics/Profitloss_test"
 
     # Delta 0.0 model
-    profitlosses1 = pd.read_csv(common_path1 + " (delta 0.0)" + common_path2).iloc[:,1]
+    profitlosses1 = pd.read_csv(common_path1 + " (delta 0.0)" + common_path2).iloc[:, 1]
     # Delta 0.03 model
-    profitlosses2 = pd.read_csv(common_path1 + " (delta 0.03)" + common_path2).iloc[:,1]
+    profitlosses2 = pd.read_csv(common_path1 + " (delta 0.03)" + common_path2).iloc[:, 1]
     # Delta 0.05 model
-    profitlosses3 = pd.read_csv(common_path1 + " (delta 0.05)" + common_path2).iloc[:,1]
+    profitlosses3 = pd.read_csv(common_path1 + " (delta 0.05)" + common_path2).iloc[:, 1]
     # Delta 0.07 model (Base)
-    profitlosses4 = pd.read_csv(common_path1 + " (base)" + common_path2).iloc[:,1]
+    profitlosses4 = pd.read_csv(common_path1 + " (base)" + common_path2).iloc[:, 1]
     # Delta 0.1 model
-    profitlosses5 = pd.read_csv(common_path1 + " (delta 0.1)" + common_path2).iloc[:,1]
+    profitlosses5 = pd.read_csv(common_path1 + " (delta 0.1)" + common_path2).iloc[:, 1]
     # Delta 0.13 model
-    profitlosses6 = pd.read_csv(common_path1 + " (delta 0.13)" + common_path2).iloc[:,1]
+    profitlosses6 = pd.read_csv(common_path1 + " (delta 0.13)" + common_path2).iloc[:, 1]
     # B&H
-    profitlosses7 = pd.read_csv("/Users/mac/Desktop/RLPortfolio/B&H").iloc[:,1]
+    profitlosses7 = pd.read_csv("/Users/mac/Desktop/RLPortfolio/B&H").iloc[:, 1]
 
-
-    #Visualizing
+    # Visualizing
     fig, ax = plt.subplots(figsize=(60, 8), facecolor="w")
     ax.get_xaxis().get_major_formatter().set_scientific(False)
     ax.get_yaxis().get_major_formatter().set_scientific(False)
@@ -38,7 +37,6 @@ if __name__ == "__main__":
     plt.plot(profitlosses5, label="Delta 0.1")
     plt.plot(profitlosses6, label="Delta 0.13")
     plt.plot(profitlosses7, label="B&H")
-
 
     xticks = [int(i) for i in np.linspace(0, len(profitlosses1), 6)]
     plt.xticks(xticks)

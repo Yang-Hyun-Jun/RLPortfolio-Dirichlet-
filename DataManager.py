@@ -99,6 +99,12 @@ if __name__ == "__main__":
     path5 = "/Users/mac/Desktop/OHLCV_data/ALL_OHLCV/010060" #OCI
     path6 = "/Users/mac/Desktop/OHLCV_data/ALL_OHLCV/034220" #LG디스플레이
     path7 = "/Users/mac/Desktop/OHLCV_data/ALL_OHLCV/009540" #한국조선해양
+    path8 = "/Users/mac/Desktop/OHLCV_data/ALL_OHLCV/053800" #안랩
+    path9 = "/Users/mac/Desktop/OHLCV_data/ALL_OHLCV/000270" #기아
+    path10 = "/Users/mac/Desktop/OHLCV_data/ALL_OHLCV/055550" #신한지주
+    path11 = "/Users/mac/Desktop/OHLCV_data/ALL_OHLCV/019170" #신풍제약
+
+
 
     path_list = [path1, path2, path3, path4, path5, path6, path7]
     train_data, test_data = get_data_tensor(path_list,
@@ -107,14 +113,15 @@ if __name__ == "__main__":
                                             test_date_start="20180102",
                                             test_date_end=None)
 
-    # train_data, test_data = get_data(path7,
+    # train_data, test_data = get_data(path11,
     #              train_date_start="20090101",
-    #              train_date_end="20180101",
-    #              test_date_start="20180101",
+    #              train_date_end="20150101",
+    #              test_date_start="20170102",
     #              test_date_end=None)
-
+    #
     # import matplotlib.pyplot as plt
-    # plt.plot(train_data["Price"].values)
+    # plt.plot(test_data["Price"].values)
     # plt.show()
+
     print(train_data.shape)
     print(test_data.shape)

@@ -71,7 +71,7 @@ def get_portfolio_value_curve(portfolio_values, save_path=None):
     fig.savefig(save_path)
     # plt.show()
 
-def get_profitloss_curve(profitlosses, profitlosses_Bench1=None, profitlosses_Bench2=None, save_path=None):
+def get_profitloss_curve(profitlosses, Bench1=None, Bench2=None, save_path=None):
     save_path = utils.SAVE_DIR + "/Metrics" + "/Profitloss Curve_train"\
         if save_path == None else save_path
 
@@ -85,10 +85,10 @@ def get_profitloss_curve(profitlosses, profitlosses_Bench1=None, profitlosses_Be
     plt.title("Profitloss")
     plt.plot(profitlosses, color='dodgerblue', label="model")
 
-    if profitlosses_Bench1 is not None:
-        plt.plot(profitlosses_Bench1, color='violet', label="B&H")
-    if profitlosses_Bench2 is not None:
-        plt.plot(profitlosses_Bench2, color="red", label="Random")
+    if Bench1 is not None:
+        plt.plot(Bench1, color='violet', label="B&H")
+    if Bench2 is not None:
+        plt.plot(Bench2, color="red", label="Random")
 
     xticks = [int(i) for i in np.linspace(0, len(profitlosses), 6)]
     plt.xticks(xticks)

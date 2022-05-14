@@ -12,7 +12,7 @@ from Network import Critic
 from Network import Score
 
 if __name__ == "__main__":
-    stock_code = ["010140", "000810", "034220"]
+    stock_code = ["010140", "000810", "034220", "055550", "010060", "053800"]
 
     path_list = []
     for code in stock_code:
@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
     balance = 15000000
     min_trading_price = 0
-    max_trading_price = balance/K
+    max_trading_price = int(balance/K)
 
     #Agent
     environment = environment(chart_data=test_data)
@@ -47,8 +47,8 @@ if __name__ == "__main__":
                   actor=actor,
                   critic=critic,
                   critic_target=critic_target,
-                  critic_lr=1e-4, actor_lr=1e-4,
-                  tau=0.005, delta=0.07, K=K,
+                  lr=1e-4, K=K,
+                  tau=0.005, delta=0.07,
                   discount_factor=0.9,
                   min_trading_price=min_trading_price,
                   max_trading_price=max_trading_price)
@@ -81,14 +81,15 @@ if __name__ == "__main__":
 
         metrics.portfolio_values.append(agent.portfolio_value)
         metrics.profitlosses.append(agent.profitloss)
+        metrics.balances.append(agent.balance)
 
         if steps_done % 50 == 0:
             print(f"balance:{agent.balance}")
         if done:
+            print(f"model{agent.profitloss}")
             break
 
     #Benchmark: B&H
-    bench_profitloss1 = []
     agent.set_balance(balance)
     agent.reset()
     agent.environment.reset()
@@ -102,38 +103,24 @@ if __name__ == "__main__":
 
         state1 = next_state1
         portfolio = next_portfolio
-        bench_profitloss1.append(agent.profitloss)
+        metrics.profitlosses_BH.append(agent.profitloss)
         if done:
-            break
-
-    #Benchmark Random
-    bench_profitloss2 = []
-    agent.set_balance(balance)
-    agent.reset()
-    agent.environment.reset()
-    agent.delta = 0.0
-    state1 = agent.environment.observe()
-    portfolio = agent.portfolio
-    while True:
-        action = np.random.uniform(low=-0.1, high=0.1, size=3)
-        confidence = abs(action)
-        next_state1, next_portfolio, reward, done = agent.step(action, confidence)
-
-        state1 = next_state1
-        portfolio = next_portfolio
-        bench_profitloss2.append(agent.profitloss)
-        if done:
+            print(f"B&H{agent.profitloss}")
             break
 
     #metric and visualizing
     Vsave_path2 = utils.SAVE_DIR + "/" + "/Metrics" + "/Portfolio Value Curve_test"
     Vsave_path4 = utils.SAVE_DIR + "/" + "/Metrics" + "/Profitloss Curve_test"
     Msave_path1 = utils.SAVE_DIR + "/" + "/Metrics" + "/Portfolio Value_test"
-    Msave_path3 = utils.SAVE_DIR + "/" + "/Metrics" + "/Profitloss_test"
+    Msave_path2 = utils.SAVE_DIR + "/" + "/Metrics" + "/Profitloss_test"
+    Msave_path3 = utils.SAVE_DIR + "/" + "/Metrics" + "/Profitloss B&H"
+    Msave_path4 = utils.SAVE_DIR + "/" + "/Metrics" + "/Balances"
 
     metrics.get_portfolio_values(save_path=Msave_path1)
-    metrics.get_profitlosses(save_path=Msave_path3)
+    metrics.get_profitlosses(save_path=Msave_path2)
+    metrics.get_profitlosses_BH(save_path=Msave_path3)
+    metrics.get_balances(save_path=Msave_path4)
 
     Visualizer.get_portfolio_value_curve(metrics.portfolio_values, save_path=Vsave_path2)
-    Visualizer.get_profitloss_curve(metrics.profitlosses, bench_profitloss1, save_path=Vsave_path4)
+    Visualizer.get_profitloss_curve(metrics.profitlosses, metrics.profitlosses_BH, save_path=Vsave_path4)
 

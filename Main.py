@@ -27,14 +27,14 @@ if __name__ == "__main__":
   010060: OCI
   034220: LG디스플레이
   009540: 한국조선해양
+  053800: 안랩
   """
 
-  parser.add_argument("--actor_lr", type=float, default=1e-4)
-  parser.add_argument("--critic_lr", type=float, default=1e-4)
+  parser.add_argument("--lr", type=float, default=1e-4)
   parser.add_argument("--tau", type=float, default=0.005)
   parser.add_argument("--delta", type=float, default=0.07)
   parser.add_argument("--discount_factor", type=float, default=0.9)
-  parser.add_argument("--num_episode", type=int, default=50)
+  parser.add_argument("--num_episode", type=int, default=70)
   parser.add_argument("--balance", type=int, default=15000000)
   parser.add_argument("--batch_size", type=int, default=256)
   parser.add_argument("--memory_size", type=int, default=100000)
@@ -64,10 +64,10 @@ train_data, test_data = DataManager.get_data_tensor(path_list,
 
 # # 최소/최대 투자 가격 설정
 min_trading_price = 0
-max_trading_price = args.balance / len(args.stock_code)
+max_trading_price = int(args.balance / len(args.stock_code))
 
 # 파라미터 설정
-params = {"actor_lr":args.actor_lr, "critic_lr":args.critic_lr, "tau":args.tau, "K":len(args.stock_code),
+params = {"lr":args.lr, "tau":args.tau, "K":len(args.stock_code),
           "chart_data": train_data, "discount_factor":args.discount_factor, "delta":args.delta,
           "min_trading_price": min_trading_price, "max_trading_price": max_trading_price,
           "batch_size":args.batch_size, "memory_size":args.memory_size}
