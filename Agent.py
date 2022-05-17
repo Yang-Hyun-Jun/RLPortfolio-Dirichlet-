@@ -4,10 +4,10 @@ import numpy as np
 
 class agent(nn.Module):
     # 거래 비용
-    TRADING_CHARGE = 0.00015
-    TRADING_TEX = 0.0025
-    # TRADING_CHARGE = 0.0
-    # TRADING_TEX = 0.0
+    # TRADING_CHARGE = 0.00015
+    # TRADING_TEX = 0.0025
+    TRADING_CHARGE = 0.0
+    TRADING_TEX = 0.0
 
     def __init__(self, environment,
                  critic:nn.Module,
@@ -34,9 +34,10 @@ class agent(nn.Module):
         self.discount_factor = discount_factor
 
         parameters = set(self.critic.parameters()) | set(self.actor.parameters())
-        self.optimizer = torch.optim.Adam(params=parameters, lr=self.lr)
+        self.optimizer = torch.optim.Adam(params=parameters, lr=self.lr, weight_decay=1e-4)
         self.huber = nn.SmoothL1Loss()
-        self.critic.load_state_dict(self.critic_target.state_dict())
+        self.critic_target.load_state_dict(self.critic.state_dict())
+        self.critic_target.eval()
 
         self.num_stocks = np.array([0] * self.K)
         self.portfolio = np.array([0] * (self.K+1), dtype=float)
@@ -60,11 +61,13 @@ class agent(nn.Module):
 
     def get_action(self, state1, portfolio, Test=False):
         with torch.no_grad():
+            self.actor.eval()
             sampled_p, log_prob = self.actor.sampling(state1, portfolio, Test)
             sampled_p = sampled_p.numpy()
             log_prob = log_prob.numpy()
             action = (sampled_p[0] - self.portfolio)[1:]
             confidence = abs(action)
+            self.actor.train()
         return action, confidence, log_prob
 
     def decide_trading_unit(self, confidence, price):
@@ -72,17 +75,19 @@ class agent(nn.Module):
         trading_unit = int(np.array(trading_amount)/price)
         return trading_unit
 
-    def validate_action(self, actions, delta):
-        for i in range(actions.shape[0]):
-            if delta < actions[i] <= 1:
+    def validate_action(self, action, delta):
+        m_action = action.copy()
+        for i in range(action.shape[0]):
+            if delta < action[i] <= 1:
                 # 매수인 경우 적어도 1주를 살 수 있는지 확인
                 if self.balance < self.environment.get_price()[i] * (1 + self.TRADING_CHARGE):
-                    actions[i] = 0.0 #Hold
+                    m_action[i] = 0.0 #Hold
 
-            elif -1 <= actions[i] < -delta:
+            elif -1 <= action[i] < -delta:
                 # 매도인 경우 주식 잔고가 있는지 확인
                 if self.num_stocks[i] == 0:
-                    actions[i] = 0.0 #Hold
+                    m_action[i] = 0.0 #Hold
+        return m_action
 
     def pi_operator(self, change_rate):
         pi_vector = np.zeros(len(change_rate) + 1)
@@ -116,37 +121,38 @@ class agent(nn.Module):
 
         close_p1 = self.environment.get_price()
 
-        self.validate_action(action, self.delta)
+        m_action = self.validate_action(action, self.delta)
         self.portfolio_value_static_ = self.portfolio * self.portfolio_value
 
         #전체적으로 종목별 매도 수행을 먼저한다.
-        for i in range(action.shape[0]):
+        for i in range(m_action.shape[0]):
             p1_price = close_p1[i]
 
-            if abs(action[i]) > 1.0:
+            if abs(m_action[i]) > 1.0:
                 raise Exception("Action is out of bound")
             # Sell
-            if -1 <= action[i] < -self.delta:
+            if -1 <= m_action[i] < -self.delta:
                 trading_unit = self.decide_trading_unit(confidence[i], p1_price)
                 trading_unit = min(trading_unit, self.num_stocks[i])
 
-                invest_amount = p1_price * (1 - (self.TRADING_TEX + self.TRADING_CHARGE)) * trading_unit
+                invest_amount = p1_price * trading_unit * (1 - (self.TRADING_TEX + self.TRADING_CHARGE))
                 self.num_stocks[i] -= trading_unit
                 self.balance += invest_amount
                 self.portfolio[0] += invest_amount/self.portfolio_value
                 self.portfolio[i+1] -= invest_amount/self.portfolio_value
+                m_action[i] = -invest_amount/self.portfolio_value
 
 
         #다음으로 종목별 매수 수행
         for i in range(action.shape[0]):
             p1_price = close_p1[i]
 
-            if abs(action[i]) > 1.0:
+            if abs(m_action[i]) > 1.0:
                 raise Exception("Action is out of bound")
             # Buy
-            if self.delta < action[i] <= 1:
+            if self.delta < m_action[i] <= 1:
                 trading_unit = self.decide_trading_unit(confidence[i], p1_price)
-                cal_balance = (self.balance - p1_price * (1 + self.TRADING_CHARGE) * trading_unit)
+                cal_balance = (self.balance - p1_price * trading_unit * (1 + self.TRADING_CHARGE))
 
                 #돈 부족 한 경우
                 if cal_balance < 0:
@@ -155,11 +161,12 @@ class agent(nn.Module):
                         int(self.max_trading_price / p1_price))
 
                 # 수수료 적용하여 총 매수 금액 산정
-                invest_amount = p1_price * (1 + self.TRADING_CHARGE) * trading_unit
+                invest_amount = p1_price * trading_unit * (1 + self.TRADING_CHARGE)
                 self.num_stocks[i] += trading_unit
                 self.balance -= invest_amount
                 self.portfolio[0] -= invest_amount/self.portfolio_value
                 self.portfolio[i+1] += invest_amount/self.portfolio_value
+                m_action[i] = +invest_amount/self.portfolio_value
 
         self.portfolio = self.portfolio / np.sum(self.portfolio) #sum = 1
 
@@ -181,7 +188,7 @@ class agent(nn.Module):
             done = 1
         else:
             done = 0
-        return next_state1, next_portfolio, reward, done
+        return m_action, next_state1, next_portfolio, reward, done
 
     def update(self, s_tensor, portfolio, action, reward, ns_tensor, ns_portfolio, log_prob, done):
         s, pf, a, r, ns, npf = s_tensor, portfolio, action, reward, ns_tensor, ns_portfolio
@@ -205,11 +212,11 @@ class agent(nn.Module):
         td_advantage = td_advantage.detach()
         surr1 = ratio * td_advantage
         surr2 = torch.clamp(ratio, 1-eps_clip, 1+eps_clip) * td_advantage
-        actor_loss = -torch.min(surr1, surr2)
+        actor_loss = -torch.min(surr1, surr2).mean()
 
-        loss = (actor_loss + critic_loss).mean()
+        self.loss = actor_loss + critic_loss
         self.optimizer.zero_grad()
-        loss.backward()
+        self.loss.backward()
         self.optimizer.step()
 
     def soft_target_update(self, params, target_params):

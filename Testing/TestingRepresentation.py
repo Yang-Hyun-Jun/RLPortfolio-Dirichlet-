@@ -7,11 +7,11 @@ if __name__ == "__main__":
     common_path2 = "/Metrics/Profitloss_test"
 
     # mean test profitloss
-    profitlosses1 = pd.read_csv(common_path1 + " (mean2)" + common_path2).iloc[:,1]
+    profitlosses1 = pd.read_csv(common_path1 + " (mean)" + common_path2).iloc[:,1]
     # mode test profitloss
-    profitlosses2 = pd.read_csv(common_path1 + " (mode2)" + common_path2).iloc[:,1]
+    profitlosses2 = pd.read_csv(common_path1 + " (mode)" + common_path2).iloc[:,1]
     # B&H
-    profitlosses3 = pd.read_csv("/Users/mac/Desktop/RLPortfolio/B&H").iloc[:,1]
+    profitlosses3 = pd.read_csv(common_path1 + "/Metrics/Profitloss B&H").iloc[:,1]
 
 
     #Visualizing

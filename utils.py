@@ -11,3 +11,9 @@ def exp(x):
     return np.exp(x)
 
 
+if __name__ == "__main__":
+    import torch
+    import torch.nn as nn
+
+    a = torch.rand(size=(1, 4))
+    print(torch.softmax(a, dim=1))

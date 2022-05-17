@@ -2,42 +2,40 @@ import os
 import argparse
 import DataManager
 import utils
-
 from Learner import learner
+
+"""
+상승
+010140: 삼성중공업
+006280: 녹십자
+009830: 한화솔루션
+011170: 롯데케미칼
+010060: OCI
+034220: LG디스플레이
+000810: 삼성화재
+
+박스권/하락
+010140: 삼성중공업
+013570: 디와이
+010690: 화신
+000910: 유니온
+010060: OCI
+034220: LG디스플레이
+009540: 한국조선해양
+053800: 안랩
+"""
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument("--stock_code", nargs="+", default= ["010140", "000810", "034220"])
-
-  """
-  상승
-  010140: 삼성중공업
-  006280: 녹십자
-  009830: 한화솔루션
-  011170: 롯데케미칼
-  010060: OCI
-  034220: LG디스플레이
-  000810: 삼성화재
-
-  박스권/하락
-  010140: 삼성중공업
-  013570: 디와이
-  010690: 화신
-  000910: 유니온
-  010060: OCI
-  034220: LG디스플레이
-  009540: 한국조선해양
-  053800: 안랩
-  """
-
-  parser.add_argument("--lr", type=float, default=1e-4)
+  parser.add_argument("--lr", type=float, default=1e-5)
   parser.add_argument("--tau", type=float, default=0.005)
-  parser.add_argument("--delta", type=float, default=0.07)
+  parser.add_argument("--delta", type=float, default=0.05)
   parser.add_argument("--discount_factor", type=float, default=0.9)
-  parser.add_argument("--num_episode", type=int, default=70)
+  parser.add_argument("--num_episode", type=int, default=50)
   parser.add_argument("--balance", type=int, default=15000000)
-  parser.add_argument("--batch_size", type=int, default=256)
-  parser.add_argument("--memory_size", type=int, default=100000)
+  parser.add_argument("--batch_size", type=int, default=30)
+  parser.add_argument("--memory_size", type=int, default=100)
   parser.add_argument("--train_date_start", default="20090101")
   parser.add_argument("--train_date_end", default="20150101")
   parser.add_argument("--test_date_start", default="20170102")

@@ -3,6 +3,7 @@ import numpy as np
 
 Features_Raw = ["Open", "High", "Low", "Close", "Volume", "Price"]
 
+
 def get_data(path,
              train_date_start=None, train_date_end=None,
              test_date_start=None, test_date_end=None):
@@ -26,6 +27,7 @@ def get_data(path,
     train_data = train_data.astype("float32")
     test_data = test_data.astype("float32")
     return train_data.loc[:,Features_Raw], test_data.loc[:,Features_Raw]
+
 
 def get_data_tensor(path_list,
                     train_date_start=None, train_date_end=None,
@@ -103,25 +105,26 @@ if __name__ == "__main__":
     path9 = "/Users/mac/Desktop/OHLCV_data/ALL_OHLCV/000270" #기아
     path10 = "/Users/mac/Desktop/OHLCV_data/ALL_OHLCV/055550" #신한지주
     path11 = "/Users/mac/Desktop/OHLCV_data/ALL_OHLCV/019170" #신풍제약
+    path12 = "/Users/mac/Desktop/OHLCV_data/ALL_OHLCV/005930" #삼성전자
 
 
+    # path_list = [path1, path2, path3, path4, path5, path6, path7]
+    # train_data, test_data = get_data_tensor(path_list,
+    #                                         train_date_start="20090101",
+    #                                         train_date_end="20180101",
+    #                                         test_date_start="20180102",
+    #                                         test_date_end=None)
 
-    path_list = [path1, path2, path3, path4, path5, path6, path7]
-    train_data, test_data = get_data_tensor(path_list,
-                                            train_date_start="20090101",
-                                            train_date_end="20180101",
-                                            test_date_start="20180102",
-                                            test_date_end=None)
+    train_data, test_data = get_data(path6,
+                 train_date_start="20090101",
+                 train_date_end="20150101",
+                 test_date_start="20170102",
+                 test_date_end=None)
 
-    # train_data, test_data = get_data(path11,
-    #              train_date_start="20090101",
-    #              train_date_end="20150101",
-    #              test_date_start="20170102",
-    #              test_date_end=None)
-    #
-    # import matplotlib.pyplot as plt
-    # plt.plot(test_data["Price"].values)
-    # plt.show()
+    import matplotlib.pyplot as plt
+    plt.plot(train_data["Price"].values)
+    plt.plot(test_data["Price"].values)
+    plt.show()
 
     print(train_data.shape)
     print(test_data.shape)

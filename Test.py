@@ -12,7 +12,7 @@ from Network import Critic
 from Network import Score
 
 if __name__ == "__main__":
-    stock_code = ["010140", "000810", "034220", "055550", "010060", "053800"]
+    stock_code = ["010140", "000810", "034220"]
 
     path_list = []
     for code in stock_code:
@@ -48,7 +48,7 @@ if __name__ == "__main__":
                   critic=critic,
                   critic_target=critic_target,
                   lr=1e-4, K=K,
-                  tau=0.005, delta=0.07,
+                  tau=0.005, delta=0.05,
                   discount_factor=0.9,
                   min_trading_price=min_trading_price,
                   max_trading_price=max_trading_price)
@@ -57,7 +57,6 @@ if __name__ == "__main__":
     critic_path = utils.SAVE_DIR + "/Models" + "/DirichletPortfolio_critic.pth"
     actor_path = utils.SAVE_DIR + "/Models" + "/DirichletPortfolio_actor.pth"
     score_path = utils.SAVE_DIR + "/Models" + "/DirichletPortfolio_score.pth"
-    # agent.critic.load_state_dict(torch.load(critic_path))
     agent.actor.load_state_dict(torch.load(actor_path))
     agent.actor.score_net.load_state_dict(torch.load(score_path))
 
@@ -72,9 +71,9 @@ if __name__ == "__main__":
 
     while True:
         action, confidence, log_prob = agent.get_action(torch.tensor(state1).float().view(1,K,-1),
-                                                        torch.tensor(portfolio).float().view(1,K+1,-1), "mean")
+                                                        torch.tensor(portfolio).float().view(1,K+1,-1), "mode")
 
-        next_state1, next_portfolio, reward, done = agent.step(action, confidence)
+        _, next_state1, next_portfolio, reward, done = agent.step(action, confidence)
         steps_done += 1
         state1 = next_state1
         portfolio = next_portfolio
@@ -85,6 +84,9 @@ if __name__ == "__main__":
 
         if steps_done % 50 == 0:
             print(f"balance:{agent.balance}")
+            print(f"stocks:{agent.num_stocks}")
+            print(f"actions:{action}")
+            print(f"portfolio:{agent.portfolio}")
         if done:
             print(f"model{agent.profitloss}")
             break
@@ -99,7 +101,7 @@ if __name__ == "__main__":
     while True:
         action = np.ones(K)/K
         confidence = abs(action)
-        next_state1, next_portfolio, reward, done = agent.step(action, confidence)
+        _, next_state1, next_portfolio, reward, done = agent.step(action, confidence)
 
         state1 = next_state1
         portfolio = next_portfolio
