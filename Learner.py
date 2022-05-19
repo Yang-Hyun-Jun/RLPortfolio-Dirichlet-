@@ -11,7 +11,7 @@ from Network import Score
 from Metrics import Metrics
 
 
-class learner:
+class DIRILearner:
     def __init__(self,
                  lr=1e-4,
                  tau = 0.005, delta=0.05,
@@ -133,6 +133,7 @@ class learner:
                     p = self.agent.portfolio
                     pv = self.agent.portfolio_value
                     sv = self.agent.portfolio_value_static
+                    fee = self.agent.fee
                     stocks = self.agent.num_stocks
                     balance = self.agent.balance
                     change = self.agent.change
@@ -140,13 +141,14 @@ class learner:
                     profitloss = self.agent.profitloss
                     loss = self.agent.loss
                     np.set_printoptions(precision=4, suppress=True)
-                    print(f"episode:{episode} ------------------------------------------------------------------------")
+                    print(f"episode:{episode} ========================================================================")
                     print(f"price:{self.environment.get_price()}")
                     print(f"value:{value}")
                     print(f"action:{a}")
                     print(f"maction:{m_action}")
                     print(f"gap:{a-m_action}")
                     print(f"stocks:{stocks}")
+                    print(f"fee:{fee}")
                     print(f"alpha:{al}")
                     print(f"portfolio:{p}")
                     print(f"pi_vector:{pi_vector}")
@@ -156,7 +158,6 @@ class learner:
                     print(f"cum reward:{cum_r}")
                     print(f"profitloss:{profitloss}")
                     print(f"loss:{loss}")
-                    print("-------------------------------------------------------------------------------------------")
 
                 # 학습
                 if len(self.memory) >= self.batch_size:
@@ -169,12 +170,14 @@ class learner:
                 if episode == range(num_episode)[-1]:
                     metrics.portfolio_values.append(self.agent.portfolio_value)
                     metrics.profitlosses.append(self.agent.profitloss)
+                    metrics.fees.append(self.agent.fee)
 
             #시각화 마지막 episode에 대해서만
             if episode == range(num_episode)[-1]:
                 #metric 계산과 저장
                 metrics.get_profitlosses()
                 metrics.get_portfolio_values()
+                metrics.get_fees()
 
                 #계산한 metric 시각화와 저장
                 Visualizer.get_portfolio_value_curve(metrics.portfolio_values)

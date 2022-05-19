@@ -4,10 +4,10 @@ import numpy as np
 
 class agent(nn.Module):
     # 거래 비용
-    # TRADING_CHARGE = 0.00015
-    # TRADING_TEX = 0.0025
-    TRADING_CHARGE = 0.0
-    TRADING_TEX = 0.0
+    TRADING_CHARGE = 0.00015
+    TRADING_TEX = 0.0025
+    # TRADING_CHARGE = 0.0
+    # TRADING_TEX = 0.0
 
     def __init__(self, environment,
                  critic:nn.Module,
@@ -46,6 +46,7 @@ class agent(nn.Module):
         self.initial_balance = 0
         self.balance = 0
         self.profitloss = 0
+        self.fee = 0
 
 
     def set_balance(self, balance):
@@ -58,6 +59,7 @@ class agent(nn.Module):
         self.balance = self.initial_balance
         self.portfolio_value = self.initial_balance
         self.profitloss = 0
+        self.fee = 0
 
     def get_action(self, state1, portfolio, Test=False):
         with torch.no_grad():
@@ -120,8 +122,9 @@ class agent(nn.Module):
         assert 0 <= self.delta < 1
 
         close_p1 = self.environment.get_price()
-
+        portfolio_n = self.portfolio.copy()
         m_action = self.validate_action(action, self.delta)
+
         self.portfolio_value_static_ = self.portfolio * self.portfolio_value
 
         #전체적으로 종목별 매도 수행을 먼저한다.
@@ -136,15 +139,20 @@ class agent(nn.Module):
                 trading_unit = min(trading_unit, self.num_stocks[i])
 
                 invest_amount = p1_price * trading_unit * (1 - (self.TRADING_TEX + self.TRADING_CHARGE))
+                invest_amount_n = p1_price * trading_unit
+
+                self.fee += invest_amount_n - invest_amount
                 self.num_stocks[i] -= trading_unit
                 self.balance += invest_amount
                 self.portfolio[0] += invest_amount/self.portfolio_value
                 self.portfolio[i+1] -= invest_amount/self.portfolio_value
                 m_action[i] = -invest_amount/self.portfolio_value
+                portfolio_n[0] += invest_amount_n/self.portfolio_value
+                portfolio_n[i+1] -= invest_amount_n/self.portfolio_value
 
 
         #다음으로 종목별 매수 수행
-        for i in range(action.shape[0]):
+        for i in range(m_action.shape[0]):
             p1_price = close_p1[i]
 
             if abs(m_action[i]) > 1.0:
@@ -162,11 +170,16 @@ class agent(nn.Module):
 
                 # 수수료 적용하여 총 매수 금액 산정
                 invest_amount = p1_price * trading_unit * (1 + self.TRADING_CHARGE)
+                invest_amount_n = p1_price * trading_unit
+
+                self.fee += invest_amount - invest_amount_n
                 self.num_stocks[i] += trading_unit
                 self.balance -= invest_amount
                 self.portfolio[0] -= invest_amount/self.portfolio_value
                 self.portfolio[i+1] += invest_amount/self.portfolio_value
                 m_action[i] = +invest_amount/self.portfolio_value
+                portfolio_n[0] -= invest_amount_n/self.portfolio_value
+                portfolio_n[i+1] += invest_amount_n/self.portfolio_value
 
         self.portfolio = self.portfolio / np.sum(self.portfolio) #sum = 1
 
@@ -178,10 +191,12 @@ class agent(nn.Module):
         self.change = (np.array(close_p2)-np.array(close_p1))/np.array(close_p1)
         self.portfolio = self.get_portfolio(close_p1=close_p1, close_p2=close_p2)
         self.portfolio_value = self.get_portfolio_value(close_p1=close_p1, close_p2=close_p2, portfolio=self.portfolio)
+        self.portfolio_value_n = self.get_portfolio_value(close_p1=close_p1, close_p2=close_p2, portfolio=portfolio_n)
         self.portfolio_value_static = np.dot(self.portfolio_value_static_, self.pi_operator(self.change))
         self.profitloss = ((self.portfolio_value / self.initial_balance) - 1)*100
 
-        reward = self.get_reward(self.portfolio_value, self.portfolio_value_static)
+        # reward = self.get_reward(self.portfolio_value, self.portfolio_value_static)
+        reward = self.portfolio_value/self.portfolio_value_static + self.portfolio_value/self.portfolio_value_n - 2
         reward = reward*100
 
         if len(self.environment.chart_data)-1 <= self.environment.idx:
@@ -193,27 +208,30 @@ class agent(nn.Module):
     def update(self, s_tensor, portfolio, action, reward, ns_tensor, ns_portfolio, log_prob, done):
         s, pf, a, r, ns, npf = s_tensor, portfolio, action, reward, ns_tensor, ns_portfolio
         eps_clip = 0.1
+        eps_clip_critic = 0.01
 
-        #Critic loss
+        _, log_prob_ = self.actor.sampling(s, pf)
+        pi_old = torch.exp(log_prob)
+        pi_now = torch.exp(log_prob_).view(-1, 1)
+        ratio = pi_now/pi_old
+
+        # Critic loss
         with torch.no_grad():
             next_value = self.critic_target(ns, npf)
             target = reward + self.discount_factor * next_value * (1-done)
+            target = eps_clip_critic * ratio.detach() * target
 
         value = self.critic(s, pf)
         critic_loss = self.huber(value, target)
 
-        #Actor loss
-        _, log_prob_ = self.actor.sampling(s, pf)
-        pi_old = torch.exp(log_prob)
-        pi_now = torch.exp(log_prob_)
-        ratio = pi_now/pi_old
-
+        # Actor loss
         td_advantage = r + self.discount_factor * self.critic(ns, npf) * (1-done) - value
         td_advantage = td_advantage.detach()
         surr1 = ratio * td_advantage
         surr2 = torch.clamp(ratio, 1-eps_clip, 1+eps_clip) * td_advantage
         actor_loss = -torch.min(surr1, surr2).mean()
 
+        # Update
         self.loss = actor_loss + critic_loss
         self.optimizer.zero_grad()
         self.loss.backward()
