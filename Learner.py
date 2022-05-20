@@ -7,18 +7,16 @@ from Agent import agent
 from ReplayMemory import ReplayMemory
 from Network import Actor
 from Network import Critic
-from Network import Encoder
-from Network import Decoder
 from Network import Score
 from Metrics import Metrics
 
 
-class learner:
+class DIRILearner:
     def __init__(self,
                  lr=1e-4,
-                 tau = 0.005, delta=0.07,
+                 tau = 0.005, delta=0.05,
                  discount_factor=0.9,
-                 batch_size=256, memory_size=100000,
+                 batch_size=30, memory_size=100,
                  chart_data=None, K=None,
                  min_trading_price=None, max_trading_price=None):
 
@@ -31,17 +29,11 @@ class learner:
         self.chart_data = chart_data
         self.batch_size = batch_size
 
-        self.encoder = Encoder()
-        self.decoder = Decoder()
-        self.decoder_target = Decoder()
-
-        self.score_net = Score(self.encoder, self.decoder)
-        self.score_net_target = Score(self.encoder, self.decoder_target)
-
-        self.actor = Actor(score_net=self.score_net)
-        self.critic = Critic(score_net=self.score_net, header_dim=K)
-        self.critic_target = Critic(score_net=self.score_net_target, header_dim=K)
-        self.critic_target.load_state_dict(self.critic.state_dict())
+        self.score_net_actor = Score()
+        self.score_net_critic = Score()
+        self.actor = Actor(score_net=self.score_net_actor)
+        self.critic = Critic(score_net=self.score_net_critic, header_dim=K)
+        self.critic_target = Critic(score_net=self.score_net_critic, header_dim=K)
 
         self.lr = lr
         self.tau = tau
@@ -107,15 +99,18 @@ class learner:
             state1 = self.environment.observe()
             portfolio = self.agent.portfolio
             while True:
+                # self.agent.TRADING_CHARGE = 0.00015 + (0.0000001 - 0.00015) * np.exp(-steps_done/5000)
+                # self.agent.TRADING_TEX = 0.0025 + (0.0000001 - 0.0025) * np.exp(-steps_done/5000)
+
                 action, confidence, log_prob = self.agent.get_action(torch.tensor(state1).float().view(1,self.K,-1),
                                                                      torch.tensor(portfolio).float().view(1,self.K+1,-1))
 
-                next_state1, next_portfolio, reward, done = self.agent.step(action, confidence)
+                m_action, next_state1, next_portfolio, reward, done = self.agent.step(action, confidence)
                 steps_done += 1
 
                 experience = (torch.tensor(state1).float().view(1,self.K,-1),
                               torch.tensor(portfolio).float().view(1,self.K+1,-1),
-                              torch.tensor(action).float().view(1,-1),
+                              torch.tensor(m_action).float().view(1,-1),
                               torch.tensor(reward).float().view(1,-1),
                               torch.tensor(next_state1).float().view(1,self.K,-1),
                               torch.tensor(next_portfolio).float().view(1,self.K+1,-1),
@@ -131,8 +126,10 @@ class learner:
                     break
 
                 if steps_done % 300 == 0:
+                    np.set_printoptions(precision=4, suppress=True)
                     value = self.agent.critic(torch.tensor(state1).float().view(1,self.K,-1),
                                               torch.tensor(portfolio).float().view(1,self.K+1,-1)).detach().numpy()[0]
+
                     alpha = self.agent.actor(torch.tensor(state1).float().view(1,self.K,-1),
                                              torch.tensor(portfolio).float().view(1,self.K+1,-1)).detach()[0]
                     a = action
@@ -140,15 +137,23 @@ class learner:
                     p = self.agent.portfolio
                     pv = self.agent.portfolio_value
                     sv = self.agent.portfolio_value_static
+                    cum_fee = self.agent.cum_fee
+                    stocks = self.agent.num_stocks
                     balance = self.agent.balance
                     change = self.agent.change
                     pi_vector = self.agent.pi_operator(change)
                     profitloss = self.agent.profitloss
-                    np.set_printoptions(precision=4, suppress=True)
-                    print(f"episode:{episode} ------------------------------------------------------------------------")
+                    loss = self.agent.loss
+                    tex = self.agent.TRADING_TEX
+                    charge = self.agent.TRADING_CHARGE
+                    print(f"episode:{episode} ========================================================================")
                     print(f"price:{self.environment.get_price()}")
                     print(f"value:{value}")
                     print(f"action:{a}")
+                    print(f"maction:{m_action}")
+                    print(f"gap:{a-m_action}")
+                    print(f"stocks:{stocks}")
+                    print(f"cum_fee:{cum_fee}")
                     print(f"alpha:{al}")
                     print(f"portfolio:{p}")
                     print(f"pi_vector:{pi_vector}")
@@ -157,7 +162,9 @@ class learner:
                     print(f"balance:{balance}")
                     print(f"cum reward:{cum_r}")
                     print(f"profitloss:{profitloss}")
-                    print("-------------------------------------------------------------------------------------------")
+                    print(f"tex:{tex}")
+                    print(f"charge:{charge}")
+                    print(f"loss:{loss}")
 
                 # 학습
                 if len(self.memory) >= self.batch_size:
@@ -170,12 +177,14 @@ class learner:
                 if episode == range(num_episode)[-1]:
                     metrics.portfolio_values.append(self.agent.portfolio_value)
                     metrics.profitlosses.append(self.agent.profitloss)
+                    metrics.cum_fees.append(self.agent.cum_fee)
 
             #시각화 마지막 episode에 대해서만
             if episode == range(num_episode)[-1]:
                 #metric 계산과 저장
                 metrics.get_profitlosses()
                 metrics.get_portfolio_values()
+                metrics.get_fees()
 
                 #계산한 metric 시각화와 저장
                 Visualizer.get_portfolio_value_curve(metrics.portfolio_values)

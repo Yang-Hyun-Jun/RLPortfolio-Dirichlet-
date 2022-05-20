@@ -12,7 +12,7 @@ from Network import Critic
 from Network import Score
 
 if __name__ == "__main__":
-    stock_code = ["010140", "000810", "034220", "055550", "010060", "053800"]
+    stock_code = ["010140", "000810", "034220"]
 
     path_list = []
     for code in stock_code:
@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
     balance = 15000000
     min_trading_price = 0
-    max_trading_price = int(balance/K)
+    max_trading_price = 500000
 
     #Agent
     environment = environment(chart_data=test_data)
@@ -48,7 +48,7 @@ if __name__ == "__main__":
                   critic=critic,
                   critic_target=critic_target,
                   lr=1e-4, K=K,
-                  tau=0.005, delta=0.07,
+                  tau=0.005, delta=0.005,
                   discount_factor=0.9,
                   min_trading_price=min_trading_price,
                   max_trading_price=max_trading_price)
@@ -57,7 +57,6 @@ if __name__ == "__main__":
     critic_path = utils.SAVE_DIR + "/Models" + "/DirichletPortfolio_critic.pth"
     actor_path = utils.SAVE_DIR + "/Models" + "/DirichletPortfolio_actor.pth"
     score_path = utils.SAVE_DIR + "/Models" + "/DirichletPortfolio_score.pth"
-    # agent.critic.load_state_dict(torch.load(critic_path))
     agent.actor.load_state_dict(torch.load(actor_path))
     agent.actor.score_net.load_state_dict(torch.load(score_path))
 
@@ -74,7 +73,7 @@ if __name__ == "__main__":
         action, confidence, log_prob = agent.get_action(torch.tensor(state1).float().view(1,K,-1),
                                                         torch.tensor(portfolio).float().view(1,K+1,-1), "mean")
 
-        next_state1, next_portfolio, reward, done = agent.step(action, confidence)
+        _, next_state1, next_portfolio, reward, done = agent.step(action, confidence)
         steps_done += 1
         state1 = next_state1
         portfolio = next_portfolio
@@ -82,9 +81,13 @@ if __name__ == "__main__":
         metrics.portfolio_values.append(agent.portfolio_value)
         metrics.profitlosses.append(agent.profitloss)
         metrics.balances.append(agent.balance)
-
+        metrics.cum_fees.append(agent.cum_fee)
         if steps_done % 50 == 0:
             print(f"balance:{agent.balance}")
+            print(f"stocks:{agent.num_stocks}")
+            print(f"actions:{action}")
+            print(f"portfolio:{agent.portfolio}")
+            print(f"cum_fee:{agent.cum_fee}")
         if done:
             print(f"model{agent.profitloss}")
             break
@@ -99,7 +102,7 @@ if __name__ == "__main__":
     while True:
         action = np.ones(K)/K
         confidence = abs(action)
-        next_state1, next_portfolio, reward, done = agent.step(action, confidence)
+        _, next_state1, next_portfolio, reward, done = agent.step(action, confidence)
 
         state1 = next_state1
         portfolio = next_portfolio
@@ -115,11 +118,14 @@ if __name__ == "__main__":
     Msave_path2 = utils.SAVE_DIR + "/" + "/Metrics" + "/Profitloss_test"
     Msave_path3 = utils.SAVE_DIR + "/" + "/Metrics" + "/Profitloss B&H"
     Msave_path4 = utils.SAVE_DIR + "/" + "/Metrics" + "/Balances"
+    Msave_path5 = utils.SAVE_DIR + "/" + "/Metrics" + "/fees_test"
+
 
     metrics.get_portfolio_values(save_path=Msave_path1)
     metrics.get_profitlosses(save_path=Msave_path2)
     metrics.get_profitlosses_BH(save_path=Msave_path3)
     metrics.get_balances(save_path=Msave_path4)
+    metrics.get_fees(save_path=Msave_path5)
 
     Visualizer.get_portfolio_value_curve(metrics.portfolio_values, save_path=Vsave_path2)
     Visualizer.get_profitloss_curve(metrics.profitlosses, metrics.profitlosses_BH, save_path=Vsave_path4)

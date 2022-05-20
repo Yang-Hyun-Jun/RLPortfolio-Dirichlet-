@@ -8,6 +8,7 @@ class Metrics:
         self.profitlosses = []
         self.profitlosses_BH = []
         self.daily_returns = []
+        self.cum_fees = []
         self.balances = []
         self.total_return = None
         self.volatility = None
@@ -18,6 +19,12 @@ class Metrics:
         self.daily_returns = []
         self.total_return = None
         self.volatility = None
+
+    def get_fees(self, save_path=None):
+        save_path = utils.SAVE_DIR + "/Metrics" + "/cum_fees"\
+            if save_path is None else save_path
+        df = pd.DataFrame({"cum_fees": self.cum_fees})
+        df.to_csv(save_path)
 
     def get_balances(self, save_path=None):
         save_path = utils.SAVE_DIR + "/Metrics" + "/balances"\

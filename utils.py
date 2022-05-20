@@ -11,3 +11,16 @@ def exp(x):
     return np.exp(x)
 
 
+if __name__ == "__main__":
+
+    start = 0.000001
+    end = 0.0025
+    steps_done = 0
+    p = end + (start-end) * np.exp(-steps_done/5000)
+
+    for i in range(100000):
+        p = end + (start - end) * np.exp(-steps_done / 10000)
+        steps_done += 1
+        print(p)
+
+
