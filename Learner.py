@@ -99,6 +99,9 @@ class DIRILearner:
             state1 = self.environment.observe()
             portfolio = self.agent.portfolio
             while True:
+                # self.agent.TRADING_CHARGE = 0.00015 + (0.0000001 - 0.00015) * np.exp(-steps_done/5000)
+                # self.agent.TRADING_TEX = 0.0025 + (0.0000001 - 0.0025) * np.exp(-steps_done/5000)
+
                 action, confidence, log_prob = self.agent.get_action(torch.tensor(state1).float().view(1,self.K,-1),
                                                                      torch.tensor(portfolio).float().view(1,self.K+1,-1))
 
@@ -123,6 +126,7 @@ class DIRILearner:
                     break
 
                 if steps_done % 300 == 0:
+                    np.set_printoptions(precision=4, suppress=True)
                     value = self.agent.critic(torch.tensor(state1).float().view(1,self.K,-1),
                                               torch.tensor(portfolio).float().view(1,self.K+1,-1)).detach().numpy()[0]
 
@@ -133,14 +137,15 @@ class DIRILearner:
                     p = self.agent.portfolio
                     pv = self.agent.portfolio_value
                     sv = self.agent.portfolio_value_static
-                    fee = self.agent.fee
+                    cum_fee = self.agent.cum_fee
                     stocks = self.agent.num_stocks
                     balance = self.agent.balance
                     change = self.agent.change
                     pi_vector = self.agent.pi_operator(change)
                     profitloss = self.agent.profitloss
                     loss = self.agent.loss
-                    np.set_printoptions(precision=4, suppress=True)
+                    tex = self.agent.TRADING_TEX
+                    charge = self.agent.TRADING_CHARGE
                     print(f"episode:{episode} ========================================================================")
                     print(f"price:{self.environment.get_price()}")
                     print(f"value:{value}")
@@ -148,7 +153,7 @@ class DIRILearner:
                     print(f"maction:{m_action}")
                     print(f"gap:{a-m_action}")
                     print(f"stocks:{stocks}")
-                    print(f"fee:{fee}")
+                    print(f"cum_fee:{cum_fee}")
                     print(f"alpha:{al}")
                     print(f"portfolio:{p}")
                     print(f"pi_vector:{pi_vector}")
@@ -157,6 +162,8 @@ class DIRILearner:
                     print(f"balance:{balance}")
                     print(f"cum reward:{cum_r}")
                     print(f"profitloss:{profitloss}")
+                    print(f"tex:{tex}")
+                    print(f"charge:{charge}")
                     print(f"loss:{loss}")
 
                 # 학습
@@ -170,7 +177,7 @@ class DIRILearner:
                 if episode == range(num_episode)[-1]:
                     metrics.portfolio_values.append(self.agent.portfolio_value)
                     metrics.profitlosses.append(self.agent.profitloss)
-                    metrics.fees.append(self.agent.fee)
+                    metrics.cum_fees.append(self.agent.cum_fee)
 
             #시각화 마지막 episode에 대해서만
             if episode == range(num_episode)[-1]:

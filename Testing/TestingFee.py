@@ -4,14 +4,12 @@ import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     common_path1 = "/Users/mac/Desktop/RLPortfolio"
-    common_path2 = "/Metrics/Profitloss_test"
+    common_path2 = "/Metrics/cum_fees"
 
-    # Dirichlet model
-    profitlosses1 = pd.read_csv(common_path1 + "/DirichletPortfolio (scalability +3, cost)" + common_path2).iloc[:,1]
-    # DQN model
-    profitlosses2 = pd.read_csv(common_path1 + "/DQNPortfolio (scalability +3, cost)" + common_path2).iloc[:,1]
-    # B&H
-    profitlosses3 = pd.read_csv(common_path1 + "/DirichletPortfolio (scalability +3, cost)" + "/Metrics/Profitloss B&H").iloc[:,1]
+    # term o model
+    profitlosses1 = pd.read_csv(common_path1 + "/DirichletPortfolio (term o)" + common_path2).iloc[:,1]
+    # term x model
+    profitlosses2 = pd.read_csv(common_path1 + "/DirichletPortfolio (term x)" + common_path2).iloc[:,1]
 
 
     #Visualizing
@@ -20,12 +18,11 @@ if __name__ == "__main__":
     ax.get_yaxis().get_major_formatter().set_scientific(False)
     ax.yaxis.tick_right()
     ax.set_facecolor("lightgray")
-    ax.set_ylabel("Profitloss")
+    ax.set_ylabel("Fee")
     ax.set_xlabel("Time step")
-    plt.title("Profitloss")
-    plt.plot(profitlosses1, label="Dirichlet")
-    plt.plot(profitlosses2, label="DQN")
-    plt.plot(profitlosses3, label="B&H")
+    plt.title("Fee")
+    plt.plot(profitlosses1, label="term o")
+    plt.plot(profitlosses2, label="term x")
 
 
     xticks = [int(i) for i in np.linspace(0, len(profitlosses1), 6)]
@@ -33,4 +30,4 @@ if __name__ == "__main__":
     plt.grid(True, color="w", alpha=0.5)
     plt.legend()
     plt.show()
-    fig.savefig("/Users/mac/Desktop/RLPortfolio/TestingScalability")
+    fig.savefig("/Users/mac/Desktop/RLPortfolio/TestingFee")

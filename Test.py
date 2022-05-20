@@ -12,7 +12,7 @@ from Network import Critic
 from Network import Score
 
 if __name__ == "__main__":
-    stock_code = ["010140", "005930", "034220"]
+    stock_code = ["010140", "000810", "034220"]
 
     path_list = []
     for code in stock_code:
@@ -81,13 +81,13 @@ if __name__ == "__main__":
         metrics.portfolio_values.append(agent.portfolio_value)
         metrics.profitlosses.append(agent.profitloss)
         metrics.balances.append(agent.balance)
-        metrics.fees.append(agent.fee)
+        metrics.cum_fees.append(agent.cum_fee)
         if steps_done % 50 == 0:
             print(f"balance:{agent.balance}")
             print(f"stocks:{agent.num_stocks}")
             print(f"actions:{action}")
             print(f"portfolio:{agent.portfolio}")
-            print(f"fee:{agent.fee}")
+            print(f"cum_fee:{agent.cum_fee}")
         if done:
             print(f"model{agent.profitloss}")
             break

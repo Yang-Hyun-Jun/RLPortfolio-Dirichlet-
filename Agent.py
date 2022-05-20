@@ -4,10 +4,10 @@ import numpy as np
 
 class agent(nn.Module):
     # 거래 비용
-    TRADING_CHARGE = 0.00015
-    TRADING_TEX = 0.0025
-    # TRADING_CHARGE = 0.0
-    # TRADING_TEX = 0.0
+    # TRADING_CHARGE = 0.00015
+    # TRADING_TEX = 0.0025
+    TRADING_CHARGE = 0.0
+    TRADING_TEX = 0.0
 
     def __init__(self, environment,
                  critic:nn.Module,
@@ -46,7 +46,7 @@ class agent(nn.Module):
         self.initial_balance = 0
         self.balance = 0
         self.profitloss = 0
-        self.fee = 0
+        self.cum_fee = 0
 
 
     def set_balance(self, balance):
@@ -59,7 +59,7 @@ class agent(nn.Module):
         self.balance = self.initial_balance
         self.portfolio_value = self.initial_balance
         self.profitloss = 0
-        self.fee = 0
+        self.cum_fee = 0
 
     def get_action(self, state1, portfolio, Test=False):
         with torch.no_grad():
@@ -121,8 +121,10 @@ class agent(nn.Module):
         assert action.shape[0] == confidence.shape[0]
         assert 0 <= self.delta < 1
 
-        close_p1 = self.environment.get_price()
+        fee = 0
         portfolio_n = self.portfolio.copy()
+        portfolio_value_n = self.portfolio_value
+        close_p1 = self.environment.get_price()
         m_action = self.validate_action(action, self.delta)
 
         self.portfolio_value_static_ = self.portfolio * self.portfolio_value
@@ -135,21 +137,21 @@ class agent(nn.Module):
                 raise Exception("Action is out of bound")
             # Sell
             if -1 <= m_action[i] < -self.delta:
+                cost = self.TRADING_TEX + self.TRADING_CHARGE
                 trading_unit = self.decide_trading_unit(confidence[i], p1_price)
                 trading_unit = min(trading_unit, self.num_stocks[i])
+                invest_amount = p1_price * trading_unit
 
-                invest_amount = p1_price * trading_unit * (1 - (self.TRADING_TEX + self.TRADING_CHARGE))
-                invest_amount_n = p1_price * trading_unit
-
-                self.fee += invest_amount_n - invest_amount
+                fee += invest_amount * cost
+                self.cum_fee += fee
                 self.num_stocks[i] -= trading_unit
-                self.balance += invest_amount
-                self.portfolio[0] += invest_amount/self.portfolio_value
+                self.balance += invest_amount * (1-cost)
+                self.portfolio[0] += invest_amount * (1-cost)/self.portfolio_value
                 self.portfolio[i+1] -= invest_amount/self.portfolio_value
-                m_action[i] = -invest_amount/self.portfolio_value
-                portfolio_n[0] += invest_amount_n/self.portfolio_value
-                portfolio_n[i+1] -= invest_amount_n/self.portfolio_value
 
+                m_action[i] = -invest_amount/self.portfolio_value
+                portfolio_n[0] += invest_amount/self.portfolio_value
+                portfolio_n[i+1] -= invest_amount/self.portfolio_value
 
         #다음으로 종목별 매수 수행
         for i in range(m_action.shape[0]):
@@ -159,31 +161,41 @@ class agent(nn.Module):
                 raise Exception("Action is out of bound")
             # Buy
             if self.delta < m_action[i] <= 1:
+                cost = self.TRADING_CHARGE
                 trading_unit = self.decide_trading_unit(confidence[i], p1_price)
-                cal_balance = (self.balance - p1_price * trading_unit * (1 + self.TRADING_CHARGE))
+                cal_balance = (self.balance - p1_price * trading_unit * (1+cost))
 
                 #돈 부족 한 경우
                 if cal_balance < 0:
                     trading_unit = min(
-                        int(self.balance / (p1_price * (1 + self.TRADING_CHARGE))),
-                        int(self.max_trading_price / p1_price))
+                        int(self.balance / (p1_price * (1+cost))),
+                        int(self.max_trading_price / (p1_price * (1+cost))))
 
-                # 수수료 적용하여 총 매수 금액 산정
-                invest_amount = p1_price * trading_unit * (1 + self.TRADING_CHARGE)
-                invest_amount_n = p1_price * trading_unit
-
-                self.fee += invest_amount - invest_amount_n
+                invest_amount = p1_price * trading_unit
+                fee += invest_amount * cost
+                self.cum_fee += fee
                 self.num_stocks[i] += trading_unit
-                self.balance -= invest_amount
-                self.portfolio[0] -= invest_amount/self.portfolio_value
+                self.balance -= invest_amount * (1+cost)
+                self.portfolio[0] -= invest_amount * (1+cost)/self.portfolio_value
                 self.portfolio[i+1] += invest_amount/self.portfolio_value
-                m_action[i] = +invest_amount/self.portfolio_value
-                portfolio_n[0] -= invest_amount_n/self.portfolio_value
-                portfolio_n[i+1] += invest_amount_n/self.portfolio_value
 
+                m_action[i] = +invest_amount/self.portfolio_value
+                portfolio_n[0] -= invest_amount/self.portfolio_value
+                portfolio_n[i+1] += invest_amount/self.portfolio_value
+
+            # Hold
+            elif -self.delta <= m_action[i] < self.delta:
+                m_action[i] = 0.0
+        """
+        거래로 인한 PV와 PF 변동 계산
+        """
+        self.portfolio_value -= fee
         self.portfolio = self.portfolio / np.sum(self.portfolio) #sum = 1
 
-        #다음 상태로 진행
+        """
+        다음 Time step 으로 진행 함에 따라
+        생기는 가격 변동에 의한 PV와 PF 계산
+        """
         next_state1 = self.environment.observe()
         next_portfolio = self.portfolio
         close_p2 = self.environment.get_price()
@@ -191,12 +203,20 @@ class agent(nn.Module):
         self.change = (np.array(close_p2)-np.array(close_p1))/np.array(close_p1)
         self.portfolio = self.get_portfolio(close_p1=close_p1, close_p2=close_p2)
         self.portfolio_value = self.get_portfolio_value(close_p1=close_p1, close_p2=close_p2, portfolio=self.portfolio)
-        self.portfolio_value_n = self.get_portfolio_value(close_p1=close_p1, close_p2=close_p2, portfolio=portfolio_n)
         self.portfolio_value_static = np.dot(self.portfolio_value_static_, self.pi_operator(self.change))
         self.profitloss = ((self.portfolio_value / self.initial_balance) - 1)*100
 
-        # reward = self.get_reward(self.portfolio_value, self.portfolio_value_static)
-        reward = self.portfolio_value/self.portfolio_value_static + self.portfolio_value/self.portfolio_value_n - 2
+        """
+        Cost를 적용하지 않은 PF_n, PV_n으로
+        다음 Time step으로 진행 함에 따라
+        생기는 가격 변동에 의한 PF_n, PV_n 계산
+        """
+        pi_vector = self.pi_operator(self.change)
+        portfolio_n = (portfolio_n * pi_vector)/(np.dot(portfolio_n, pi_vector))
+        portfolio_value_n = np.dot(portfolio_value_n * portfolio_n, pi_vector)
+
+        reward = self.get_reward(self.portfolio_value, self.portfolio_value_static)
+        # reward = self.portfolio_value/self.portfolio_value_static + self.portfolio_value/portfolio_value_n - 2
         reward = reward*100
 
         if len(self.environment.chart_data)-1 <= self.environment.idx:

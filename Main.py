@@ -27,10 +27,10 @@ from Learner import DIRILearner
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
-  parser.add_argument("--stock_code", nargs="+", default= ["010140", "005930", "034220"])
+  parser.add_argument("--stock_code", nargs="+", default= ["010140", "000810", "034220"])
   parser.add_argument("--lr", type=float, default=1e-5)
   parser.add_argument("--tau", type=float, default=0.005)
-  parser.add_argument("--delta", type=float, default=0.005)
+  parser.add_argument("--delta", type=float, default=0.005) #0.005
   parser.add_argument("--discount_factor", type=float, default=0.9)
   parser.add_argument("--num_episode", type=int, default=50)
   parser.add_argument("--balance", type=int, default=15000000)
@@ -62,7 +62,9 @@ train_data, test_data = DataManager.get_data_tensor(path_list,
 
 # # 최소/최대 투자 가격 설정
 min_trading_price = 0
+# max_trading_price = 2000000
 max_trading_price = 500000
+
 
 # 파라미터 설정
 params = {"lr":args.lr, "tau":args.tau, "K":len(args.stock_code),
